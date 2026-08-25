@@ -31,9 +31,9 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-// // Modular Routes Registration
+// Modular Routes Registration
 // app.use('/api/auth', authRoutes);
-// app.use('/api/pdf', pdfRoutes);
+app.use('/api/pdf', pdfRoutes);
 // app.use('/api/youtube', youtubeRoutes);
 // app.use('/api/image', imageRoutes);
 // app.use('/api/audio', audioRoutes);
@@ -49,7 +49,22 @@ app.use((req, res, next) => {
 // Global Error Handler
 app.use((err, req, res, next) => {
   console.error('[Error]', err);
-  const statusCode = err.statusCode || 500;
+
+  // Penanganan error Multer
+  if (err.name === 'MulterError') {
+    let message = err.message;
+    if (err.code === 'LIMIT_FILE_SIZE') {
+      message = 'Ukuran file melebihi batas maksimal 10 MB per file.';
+    } else if (err.code === 'LIMIT_UNEXPECTED_FILE' || err.code === 'LIMIT_FILE_COUNT') {
+      message = 'Jumlah file melebihi batas maksimal yang diperbolehkan (maksimal 5 file).';
+    }
+    return res.status(400).json({
+      success: false,
+      message,
+    });
+  }
+
+  const statusCode = err.statusCode || (err.message && err.message.includes('Hanya file format PDF') ? 400 : 500);
   res.status(statusCode).json({
     success: false,
     message: err.message || 'Terjadi kesalahan internal pada server',
