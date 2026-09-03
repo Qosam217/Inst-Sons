@@ -35,7 +35,17 @@ const uploadConvert = multer({
   fileFilter: imageFileFilter,
 });
 
+// Konfigurasi Multer untuk Compress (Maks 15 MB, 1 file, in-memory)
+const uploadCompress = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 15 * 1024 * 1024, // 15 MB
+    files: 1,
+  },
+  fileFilter: imageFileFilter,
+});
+
 router.post('/convert', uploadConvert.single('file'), imageController.convertImage);
-router.post('/compress', uploadConvert.single('file'), imageController.compressImage);
+router.post('/compress', uploadCompress.single('file'), imageController.compressImage);
 
 module.exports = router;

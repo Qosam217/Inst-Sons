@@ -173,3 +173,118 @@ describe('Image Convert Feature Tests (POST /api/image/convert)', () => {
     assert.match(res.body.message, /Hanya file format gambar/i);
   });
 });
+
+describe('Image Compress Feature Tests (POST /api/image/compress)', () => {
+  test('1. Happy Path (Default Medium): Kompresi gambar PNG default level medium', async () => {
+    const pngBuffer = await createSampleImage(2400, 1600, 'png');
+
+    const res = await request(app)
+      .post('/api/image/compress')
+      .attach('file', pngBuffer, 'large_photo.png');
+
+    assert.strictEqual(res.statusCode, 200);
+    assert.strictEqual(res.headers['content-type'], 'image/png');
+    assert.match(res.headers['content-disposition'], /compressed\.png/);
+
+    const metadata = await sharp(res.body).metadata();
+    assert.strictEqual(metadata.format, 'png');
+    assert.strictEqual(metadata.width, 1920); // Resized down to max 1920 width
+  });
+
+  test('2. Happy Path (Low Level): Kompresi gambar JPG dengan level low tanpa resize', async () => {
+    const jpgBuffer = await createSampleImage(800, 600, 'jpeg');
+
+    const res = await request(app)
+      .post('/api/image/compress')
+      .attach('file', jpgBuffer, 'photo.jpg')
+      .field('level', 'low');
+
+    assert.strictEqual(res.statusCode, 200);
+    assert.strictEqual(res.headers['content-type'], 'image/jpeg');
+    assert.match(res.headers['content-disposition'], /compressed\.jpg/);
+
+    const metadata = await sharp(res.body).metadata();
+    assert.strictEqual(metadata.format, 'jpeg');
+    assert.strictEqual(metadata.width, 800);
+    assert.strictEqual(metadata.height, 600);
+  });
+
+  test('3. Happy Path (High Level): Kompresi gambar WebP dengan level high (resize max 1080 width)', async () => {
+    const webpBuffer = await createSampleImage(2000, 1500, 'webp');
+
+    const res = await request(app)
+      .post('/api/image/compress')
+      .attach('file', webpBuffer, 'image.webp')
+      .field('level', 'high');
+
+    assert.strictEqual(res.statusCode, 200);
+    assert.strictEqual(res.headers['content-type'], 'image/webp');
+    assert.match(res.headers['content-disposition'], /compressed\.webp/);
+
+    const metadata = await sharp(res.body).metadata();
+    assert.strictEqual(metadata.format, 'webp');
+    assert.strictEqual(metadata.width, 1080);
+  });
+
+  test('4. Validasi Keberadaan File: Gagal jika file tidak dilampirkan', async () => {
+    const res = await request(app)
+      .post('/api/image/compress')
+      .field('level', 'medium');
+
+    assert.strictEqual(res.statusCode, 400);
+    assert.strictEqual(res.body.success, false);
+    assert.match(res.body.message, /File gambar wajib diunggah/i);
+  });
+
+  test('5. Validasi Ukuran File: Gagal jika ukuran file > 15 MB', async () => {
+    const largeBuffer = Buffer.alloc(16 * 1024 * 1024, 0);
+
+    const res = await request(app)
+      .post('/api/image/compress')
+      .attach('file', largeBuffer, 'huge_file.png')
+      .field('level', 'medium');
+
+    assert.strictEqual(res.statusCode, 400);
+    assert.strictEqual(res.body.success, false);
+    assert.match(res.body.message, /melebihi batas maksimal/i);
+  });
+
+  test('6. Validasi Resolusi Gambar: Gagal jika resolusi > 8000x8000', async () => {
+    const hugeImage = await createSampleImage(8001, 50, 'png');
+
+    const res = await request(app)
+      .post('/api/image/compress')
+      .attach('file', hugeImage, 'huge_resolution.png')
+      .field('level', 'low');
+
+    assert.strictEqual(res.statusCode, 400);
+    assert.strictEqual(res.body.success, false);
+    assert.match(res.body.message, /8000 x 8000/i);
+  });
+
+  test('7. Validasi Level Tidak Valid: Gagal jika level tidak didukung', async () => {
+    const sampleBuffer = await createSampleImage(100, 100, 'png');
+
+    const res = await request(app)
+      .post('/api/image/compress')
+      .attach('file', sampleBuffer, 'sample.png')
+      .field('level', 'ultra');
+
+    assert.strictEqual(res.statusCode, 400);
+    assert.strictEqual(res.body.success, false);
+    assert.match(res.body.message, /Level kompresi tidak valid/i);
+  });
+
+  test('8. Validasi Format File Input: Gagal jika file input bukan format gambar', async () => {
+    const textFile = Buffer.from('Bukan gambar');
+
+    const res = await request(app)
+      .post('/api/image/compress')
+      .attach('file', textFile, 'notes.txt')
+      .field('level', 'medium');
+
+    assert.strictEqual(res.statusCode, 400);
+    assert.strictEqual(res.body.success, false);
+    assert.match(res.body.message, /Hanya file format gambar/i);
+  });
+});
