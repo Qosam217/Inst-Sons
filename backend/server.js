@@ -35,7 +35,7 @@ app.get('/api/health', (req, res) => {
 // app.use('/api/auth', authRoutes);
 app.use('/api/pdf', pdfRoutes);
 // app.use('/api/youtube', youtubeRoutes);
-// app.use('/api/image', imageRoutes);
+app.use('/api/image', imageRoutes);
 // app.use('/api/audio', audioRoutes);
 
 // 404 Handler
@@ -54,7 +54,7 @@ app.use((err, req, res, next) => {
   if (err.name === 'MulterError') {
     let message = err.message;
     if (err.code === 'LIMIT_FILE_SIZE') {
-      message = 'Ukuran file melebihi batas maksimal yang diperbolehkan (maksimal 10 MB per file untuk merge / 20 MB untuk upload).';
+      message = 'Ukuran file melebihi batas maksimal yang diperbolehkan (maksimal 10 MB per file / 20 MB untuk upload).';
     } else if (err.code === 'LIMIT_UNEXPECTED_FILE' || err.code === 'LIMIT_FILE_COUNT') {
       message = 'Jumlah file melebihi batas maksimal yang diperbolehkan (maksimal 5 file).';
     }
@@ -64,7 +64,7 @@ app.use((err, req, res, next) => {
     });
   }
 
-  const statusCode = err.statusCode || (err.message && err.message.includes('Hanya file format PDF') ? 400 : 500);
+  const statusCode = err.statusCode || (err.message && (err.message.includes('Hanya file format') || err.message.includes('melebihi batas')) ? 400 : 500);
   res.status(statusCode).json({
     success: false,
     message: err.message || 'Terjadi kesalahan internal pada server',
