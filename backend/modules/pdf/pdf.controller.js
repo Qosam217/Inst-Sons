@@ -46,14 +46,114 @@ const mergePdf = async (req, res, next) => {
 const splitPdf = async (req, res, next) => {
   try {
     const file = req.file;
-    const { pages } = req.body;
-    const result = await pdfService.splitPdf(file, pages);
-    return res.status(200).json({
-      success: true,
-      message: 'PDF berhasil dipisahkan (placeholder)',
-      data: result,
+
+    // 1. Validasi keberadaan file
+    if (!file) {
+      return res.status(400).json({
+        success: false,
+        message: 'File PDF wajib diunggah.',
+      });
+    }
+
+    // 2. Validasi ukuran file PDF (maksimal 15 MB)
+    const MAX_FILE_SIZE = 15 * 1024 * 1024; // 15 MB
+    if (file.size > MAX_FILE_SIZE) {
+      return res.status(400).json({
+        success: false,
+        message: 'Ukuran file PDF melebihi batas maksimal 15 MB.',
+      });
+    }
+
+    // 3. Validasi nomor halaman
+    const startPage = parseInt(req.body.startPage, 10);
+    const endPage = parseInt(req.body.endPage, 10);
+
+    if (isNaN(startPage) || isNaN(endPage) || startPage < 1 || endPage < 1) {
+      return res.status(400).json({
+        success: false,
+        message: 'Nomor halaman startPage dan endPage harus berupa bilangan bulat positif (minimal 1).',
+      });
+    }
+
+    if (startPage > endPage) {
+      return res.status(400).json({
+        success: false,
+        message: 'Nilai startPage tidak boleh lebih besar dari endPage.',
+      });
+    }
+
+    // 4. Proses pemisahan PDF
+    const splitPdfBytes = await pdfService.splitPdf(file.buffer, startPage, endPage);
+
+    // 5. Kembalikan response file PDF hasil split
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', 'attachment; filename="split.pdf"');
+    return res.send(Buffer.from(splitPdfBytes));
+  } catch (error) {
+    next(error);
+  }
+};
+
+const fs = require('fs');
+
+// Helper cleanup file
+const cleanupFile = (filePath) => {
+  if (filePath && fs.existsSync(filePath)) {
+    fs.unlink(filePath, (err) => {
+      if (err) {
+        console.error(`Gagal menghapus file ${filePath}:`, err);
+      }
+    });
+  }
+};
+
+const compressPdf = async (req, res, next) => {
+  const file = req.file;
+  try {
+    // 1. Validasi keberadaan file
+    if (!file) {
+      return res.status(400).json({
+        success: false,
+        message: 'File PDF wajib diunggah.',
+      });
+    }
+
+    // 2. Validasi ukuran file PDF (maksimal 15 MB)
+    const MAX_FILE_SIZE = 15 * 1024 * 1024; // 15 MB
+    if (file.size > MAX_FILE_SIZE) {
+      cleanupFile(file.path);
+      return res.status(400).json({
+        success: false,
+        message: 'Ukuran file PDF melebihi batas maksimal 15 MB.',
+      });
+    }
+
+    // 3. Validasi level kompresi
+    const validLevels = ['low', 'medium', 'high'];
+    const level = req.body.level || 'medium';
+    if (req.body.level && !validLevels.includes(req.body.level)) {
+      cleanupFile(file.path);
+      return res.status(400).json({
+        success: false,
+        message: 'Level kompresi tidak valid. Pilihan yang tersedia: low, medium, high.',
+      });
+    }
+
+    // 4. Proses kompresi file via Ghostscript
+    const outputPath = await pdfService.compressPdf(file.path, level);
+
+    // 5. Kirim file hasil kompresi dan cleanup kedua file setelah selesai
+    return res.download(outputPath, 'compressed.pdf', (err) => {
+      cleanupFile(file.path);
+      cleanupFile(outputPath);
+      if (err && !res.headersSent) {
+        return next(err);
+      }
     });
   } catch (error) {
+    if (file && file.path) {
+      cleanupFile(file.path);
+    }
     next(error);
   }
 };
@@ -61,5 +161,6 @@ const splitPdf = async (req, res, next) => {
 module.exports = {
   mergePdf,
   splitPdf,
+  compressPdf,
 };
 

@@ -54,7 +54,7 @@ app.use((err, req, res, next) => {
   if (err.name === 'MulterError') {
     let message = err.message;
     if (err.code === 'LIMIT_FILE_SIZE') {
-      message = 'Ukuran file melebihi batas maksimal 10 MB per file.';
+      message = 'Ukuran file melebihi batas maksimal yang diperbolehkan (maksimal 10 MB per file untuk merge / 20 MB untuk upload).';
     } else if (err.code === 'LIMIT_UNEXPECTED_FILE' || err.code === 'LIMIT_FILE_COUNT') {
       message = 'Jumlah file melebihi batas maksimal yang diperbolehkan (maksimal 5 file).';
     }

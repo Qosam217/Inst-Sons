@@ -1,11 +1,13 @@
 # Base image Linux Node.js 20 Bullseye Slim
 FROM node:20-bullseye-slim
 
-# Install system dependencies: ffmpeg and python3 (required for yt-dlp & audio conversion)
+# Install system dependencies: ffmpeg, python3, and ghostscript
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
     ffmpeg \
     python3 \
+    python-is-python3 \
+    ghostscript \
     ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 

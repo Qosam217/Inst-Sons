@@ -1,0 +1,34 @@
+version: '3.8'
+
+services:
+  # 1. Service Database (PostgreSQL)
+  db:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: secretpassword
+      POSTGRES_DB: inst_sons_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  # 2. Service Backend (ExpressJS)
+  backend:
+    build:
+      context: ./backend
+    ports:
+      - "3001:3001"
+    environment:
+      - DATABASE_URL=postgres://postgres:secretpassword@db:5432/inst_sons_db
+      - PORT=3001
+    volumes:
+      # VOLUME MAPPING: Menghubungkan folder /backend di laptop menembus ke /app di Docker
+      - ./backend:/app
+      # Mencegah node_modules lokal menimpa node_modules di dalam Linux Docker
+      - /app/node_modules
+    depends_on:
+      - db
+
+volumes:
+  pgdata: # Menyimpan data database agar tidak hilang saat Docker dimatikan
