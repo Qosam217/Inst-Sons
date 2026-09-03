@@ -36,7 +36,7 @@ app.get('/api/health', (req, res) => {
 app.use('/api/pdf', pdfRoutes);
 // app.use('/api/youtube', youtubeRoutes);
 app.use('/api/image', imageRoutes);
-// app.use('/api/audio', audioRoutes);
+app.use('/api/audio', audioRoutes);
 
 // 404 Handler
 app.use((req, res, next) => {
