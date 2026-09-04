@@ -32,7 +32,7 @@ app.get('/api/health', (req, res) => {
 });
 
 // Modular Routes Registration
-// app.use('/api/auth', authRoutes);
+app.use('/api/auth', authRoutes);
 app.use('/api/pdf', pdfRoutes);
 app.use('/api/youtube', youtubeRoutes);
 app.use('/api/image', imageRoutes);

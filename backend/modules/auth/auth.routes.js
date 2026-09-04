@@ -1,10 +1,14 @@
-// const express = require('express');
-// const router = express.Router();
-// const authController = require('./auth.controller');
-// const authMiddleware = require('../../core/auth.middleware');
+const express = require('express');
+const router = express.Router();
+const authController = require('./auth.controller');
+const authMiddleware = require('../../core/auth.middleware');
 
-// router.post('/register', authController.register);
-// router.post('/login', authController.login);
-// router.get('/profile', authMiddleware, authController.getProfile);
+// Public routes
+router.post('/register', authController.register);
+router.post('/login', authController.login);
 
-// module.exports = router;
+// Protected routes (helper untuk testing auth middleware)
+router.get('/me', authMiddleware, authController.getProfile);
+router.get('/profile', authMiddleware, authController.getProfile);
+
+module.exports = router;
