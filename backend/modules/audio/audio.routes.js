@@ -5,6 +5,10 @@ const path = require('path');
 const fs = require('fs');
 const { v4: uuidv4 } = require('uuid');
 const audioController = require('./audio.controller');
+const authMiddleware = require('../../core/auth.middleware');
+
+// Terapkan auth middleware untuk seluruh route Audio
+router.use(authMiddleware);
 
 // Pastikan direktori temp tersedia
 const tempDir = path.join(__dirname, '../../temp');

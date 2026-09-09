@@ -2,6 +2,10 @@ const express = require('express');
 const router = express.Router();
 const multer = require('multer');
 const pdfController = require('./pdf.controller');
+const authMiddleware = require('../../core/auth.middleware');
+
+// Terapkan auth middleware untuk seluruh route PDF
+router.use(authMiddleware);
 
 // Helper filter format PDF
 const pdfFileFilter = (req, file, cb) => {

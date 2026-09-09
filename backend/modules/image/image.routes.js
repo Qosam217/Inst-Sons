@@ -2,6 +2,10 @@ const express = require('express');
 const router = express.Router();
 const multer = require('multer');
 const imageController = require('./image.controller');
+const authMiddleware = require('../../core/auth.middleware');
+
+// Terapkan auth middleware untuk seluruh route Image
+router.use(authMiddleware);
 
 // Helper filter format gambar yang didukung
 const imageFileFilter = (req, file, cb) => {
