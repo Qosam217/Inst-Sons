@@ -118,10 +118,36 @@ const cleanupTaskFiles = (taskId) => {
   }
 };
 
+/**
+ * Membersihkan task yang sudah berumur lebih dari maxAgeMinutes (default 30 menit)
+ * dari in-memory taskStore dan menghapus file input/output dari disk jika ada.
+ * @param {number} maxAgeMinutes
+ * @returns {number} Jumlah task yang dibersihkan
+ */
+const cleanupStaleTasks = (maxAgeMinutes = 30) => {
+  const now = Date.now();
+  const maxAgeMs = maxAgeMinutes * 60 * 1000;
+  let cleanedCount = 0;
+
+  for (const [taskId, task] of taskStore.entries()) {
+    const taskAge = now - new Date(task.createdAt).getTime();
+    if (taskAge > maxAgeMs) {
+      if (task.inputPath) removeFileIfExists(task.inputPath);
+      if (task.outputPath) removeFileIfExists(task.outputPath);
+      taskStore.delete(taskId);
+      cleanedCount++;
+    }
+  }
+
+  return cleanedCount;
+};
+
 module.exports = {
   createConversionTask,
   processAudioConversion,
   getTaskStatus,
   cleanupTaskFiles,
+  cleanupStaleTasks,
   taskStore, // diekspor untuk kemudahan testing jika diperlukan
 };
+

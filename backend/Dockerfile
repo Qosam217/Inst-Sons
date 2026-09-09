@@ -32,6 +32,8 @@ EXPOSE 5000
 # Environment defaults
 ENV NODE_ENV=production
 ENV PORT=5000
+ENV NODE_OPTIONS="--max-old-space-size=160 --optimize-for-size"
 
-# Start server
-CMD ["npm", "start"]
+# Start server directly without npm process wrapper to save memory
+CMD ["node", "--max-old-space-size=160", "--optimize-for-size", "server.js"]
+

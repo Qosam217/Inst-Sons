@@ -1,6 +1,16 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
+const sharp = require('sharp');
+const cleanupService = require('./core/cleanup.service');
+
+// Optimasi Sharp untuk lingkungan low-memory (Fly.io Free Tier 256MB RAM)
+try {
+  sharp.cache(false); // Matikan libvips cache agar tidak menahan uncompressed bitmap di RAM
+  sharp.concurrency(1); // 1 thread concurrency mencegah memory spike bersamaan
+} catch (sharpErr) {
+  console.warn('[Sharp Config Warning]:', sharpErr.message);
+}
 
 // Import modular routes
 const authRoutes = require('./modules/auth/auth.routes');
@@ -21,13 +31,19 @@ app.use(cors({
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Health Check Endpoint
+// Health Check Endpoint dengan monitoring memory
 app.get('/api/health', (req, res) => {
+  const mem = process.memoryUsage();
   res.status(200).json({
     status: 'ok',
     app: 'Inst Sons API',
     uptime: process.uptime(),
     timestamp: new Date().toISOString(),
+    memory: {
+      rssMb: Math.round(mem.rss / 1024 / 1024),
+      heapUsedMb: Math.round(mem.heapUsed / 1024 / 1024),
+      heapTotalMb: Math.round(mem.heapTotal / 1024 / 1024),
+    },
   });
 });
 
@@ -73,6 +89,9 @@ app.use((err, req, res, next) => {
 });
 
 if (process.env.NODE_ENV !== 'test') {
+  // Inisialisasi cron job auto-cleanup folder temp dan task store tiap 1 jam
+  cleanupService.startCleanupCron();
+
   app.listen(PORT, () => {
     console.log(`🚀 Inst Sons Backend Server berjalan di http://localhost:${PORT}`);
     console.log(`📡 Health Check: http://localhost:${PORT}/api/health`);
@@ -80,3 +99,4 @@ if (process.env.NODE_ENV !== 'test') {
 }
 
 module.exports = app;
+

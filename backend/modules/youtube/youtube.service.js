@@ -126,10 +126,37 @@ const cleanupTaskFile = (taskId) => {
   }
 };
 
+/**
+ * Membersihkan task yang sudah berumur lebih dari maxAgeMinutes (default 30 menit)
+ * dari in-memory taskStore dan menghapus file output dari disk /temp jika ada.
+ * @param {number} maxAgeMinutes
+ * @returns {number} Jumlah task yang dibersihkan
+ */
+const cleanupStaleTasks = (maxAgeMinutes = 30) => {
+  const now = Date.now();
+  const maxAgeMs = maxAgeMinutes * 60 * 1000;
+  let cleanedCount = 0;
+
+  for (const [taskId, task] of taskStore.entries()) {
+    const taskAge = now - new Date(task.createdAt).getTime();
+    if (taskAge > maxAgeMs) {
+      if (task.outputPath) {
+        removeFileIfExists(task.outputPath);
+      }
+      taskStore.delete(taskId);
+      cleanedCount++;
+    }
+  }
+
+  return cleanedCount;
+};
+
 module.exports = {
   createAudioTask,
   processYoutubeDownload,
   getTaskStatus,
   cleanupTaskFile,
+  cleanupStaleTasks,
   taskStore,
 };
+

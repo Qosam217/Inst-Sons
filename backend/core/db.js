@@ -6,6 +6,9 @@ if (process.env.DATABASE_URL) {
   pool = new Pool({
     connectionString: process.env.DATABASE_URL,
     ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+    max: parseInt(process.env.DB_POOL_MAX || '4', 10),
+    idleTimeoutMillis: 15000,
+    connectionTimeoutMillis: 5000,
   });
 } else {
   pool = new Pool({
@@ -14,6 +17,9 @@ if (process.env.DATABASE_URL) {
     user: process.env.DB_USER || 'postgres',
     password: process.env.DB_PASSWORD || 'postgres',
     database: process.env.DB_NAME || 'inst_sons',
+    max: parseInt(process.env.DB_POOL_MAX || '4', 10),
+    idleTimeoutMillis: 15000,
+    connectionTimeoutMillis: 5000,
   });
 }
 

@@ -79,7 +79,7 @@ const compressPdf = async (inputFilePath, level = 'medium') => {
   const command = `gs -sDEVICE=pdfwrite -dCompatibilityLevel=1.4 -dPDFSETTINGS=${pdfSetting} -dNOPAUSE -dQUIET -dBATCH -sOutputFile="${outputPath}" "${inputFilePath}"`;
 
   try {
-    await execPromise(command);
+    await execPromise(command, { timeout: 60000 });
     return outputPath;
   } catch (error) {
     // Jika output sempat terbuat namun terjadi error, bersihkan
