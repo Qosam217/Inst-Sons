@@ -1,31 +1,34 @@
-# fly.toml app configuration file generated for inst-sons-backend
-app = "inst-sons-backend"
-primary_region = "sin" # Singapore region (low latency to Southeast Asia)
+# fly.toml app configuration file generated for inst-sons-backend on 2026-09-09T23:31:14+07:00
+#
+# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
+#
+
+app = 'inst-sons-backend'
+primary_region = 'sin'
 
 [build]
-  dockerfile = "Dockerfile"
+  dockerfile = 'Dockerfile'
 
 [env]
-  PORT = "5000"
-  NODE_ENV = "production"
-  NODE_OPTIONS = "--max-old-space-size=160 --optimize-for-size"
-
+  NODE_ENV = 'production'
+  NODE_OPTIONS = '--max-old-space-size=200'
+  PORT = '5000'
 
 [http_service]
   internal_port = 5000
   force_https = true
-  auto_stop_machines = true
+  auto_stop_machines = 'stop'
   auto_start_machines = true
   min_machines_running = 0
-  processes = ["app"]
+  processes = ['app']
 
   [[http_service.checks]]
-    grace_period = "10s"
-    interval = "30s"
-    method = "GET"
-    timeout = "5s"
-    path = "/api/health"
+    interval = '30s'
+    timeout = '5s'
+    grace_period = '10s'
+    method = 'GET'
+    path = '/api/health'
 
 [[vm]]
-  size = "shared-cpu-1x"
-  memory = "256mb"
+  size = 'shared-cpu-1x'
+  memory = '256mb'

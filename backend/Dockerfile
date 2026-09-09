@@ -1,5 +1,5 @@
-# Base image Linux Node.js 20 Bullseye Slim
-FROM node:20-bullseye-slim
+# Base image Linux Node.js 20 bookworm Slim
+FROM node:20-bookworm-slim
 
 # Install system dependencies: ffmpeg, python3, and ghostscript
 RUN apt-get update && \
