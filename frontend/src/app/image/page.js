@@ -1,92 +1,132 @@
 'use client';
 
 import { useState } from 'react';
-import { Card, Button } from '../../components/Button';
-import FileDropzone from '../../components/FileDropzone';
-import { Image as ImageIcon, Minimize2, RefreshCw } from 'lucide-react';
+import { Sparkles } from 'lucide-react';
+import { Card } from '../../components/Button';
+import ImageToolTabs from '../../components/image/ImageToolTabs';
+import CompressImagePanel from '../../components/image/CompressImagePanel';
+import ConvertImagePanel from '../../components/image/ConvertImagePanel';
+import ImageResultCard from '../../components/image/ImageResultCard';
+import ImageErrorAlert from '../../components/image/ImageErrorAlert';
+import { imageService, parseImageError } from '../../services/imageService';
 
 export default function ImagePage() {
-  const [activeTab, setActiveTab] = useState('compress'); // 'compress' or 'convert'
+  const [activeTab, setActiveTab] = useState('compress'); // 'compress' | 'convert'
+  const [isLoading, setIsLoading] = useState(false);
+  const [result, setResult] = useState(null);
+  const [errorMessage, setErrorMessage] = useState('');
+
+  const handleTabChange = (tabId) => {
+    setActiveTab(tabId);
+    setResult(null);
+    setErrorMessage('');
+  };
+
+  const handleReset = () => {
+    setResult(null);
+    setErrorMessage('');
+  };
+
+  const handleCompressSubmit = async ({ file, level }) => {
+    setIsLoading(true);
+    setErrorMessage('');
+    setResult(null);
+
+    try {
+      const blob = await imageService.compressImage(file, level);
+      const ext = file.name.split('.').pop() || 'jpg';
+      const baseName = file.name.replace(/\.[^/.]+$/, '');
+
+      setResult({
+        blob,
+        filename: `${baseName}-compressed.${ext}`,
+        originalSize: file.size,
+        compressedSize: blob.size,
+        toolType: 'compress',
+        targetFormat: ext.toUpperCase(),
+      });
+    } catch (err) {
+      const msg = await parseImageError(err);
+      setErrorMessage(msg);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleConvertSubmit = async ({ file, format }) => {
+    setIsLoading(true);
+    setErrorMessage('');
+    setResult(null);
+
+    try {
+      const blob = await imageService.convertImage(file, format);
+      const baseName = file.name.replace(/\.[^/.]+$/, '');
+      const outputExt = format === 'jpeg' ? 'jpg' : format;
+
+      setResult({
+        blob,
+        filename: `${baseName}.${outputExt}`,
+        originalSize: file.size,
+        compressedSize: blob.size,
+        toolType: 'convert',
+        targetFormat: format.toUpperCase(),
+      });
+    } catch (err) {
+      const msg = await parseImageError(err);
+      setErrorMessage(msg);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   return (
     <div className="max-w-3xl mx-auto space-y-8">
-      <div className="text-center space-y-2">
-        <div className="inline-flex p-3 bg-amber-500/10 rounded-full text-amber-400">
-          <ImageIcon className="w-8 h-8" />
+      {/* Header Section */}
+      <div className="text-center space-y-3">
+        <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs font-semibold uppercase tracking-wider shadow-sm">
+          <Sparkles className="w-3.5 h-3.5" />
+          <span>Image Optimization Suite</span>
         </div>
-        <h1 className="text-3xl font-bold text-white">Image Tools</h1>
-        <p className="text-sm text-slate-400">Kompres ukuran file gambar atau konversi ke WebP, PNG, JPEG dengan Sharp engine.</p>
+        <h1 className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight">
+          Image Tools Dashboard
+        </h1>
+        <p className="text-sm sm:text-base text-slate-400 max-w-xl mx-auto leading-relaxed">
+          Kecilkan bobot gambar atau ubah ke format WebP, AVIF, PNG, & JPG secara instan dengan engine Sharp di memori RAM.
+        </p>
       </div>
 
-      <div className="flex border-b border-slate-800 justify-center space-x-4">
-        <button
-          onClick={() => setActiveTab('compress')}
-          className={`flex items-center space-x-2 pb-3 px-4 text-sm font-semibold border-b-2 transition ${
-            activeTab === 'compress'
-              ? 'border-amber-500 text-amber-400'
-              : 'border-transparent text-slate-400 hover:text-slate-200'
-          }`}
-        >
-          <Minimize2 className="w-4 h-4" />
-          <span>Kompres Gambar</span>
-        </button>
-        <button
-          onClick={() => setActiveTab('convert')}
-          className={`flex items-center space-x-2 pb-3 px-4 text-sm font-semibold border-b-2 transition ${
-            activeTab === 'convert'
-              ? 'border-amber-500 text-amber-400'
-              : 'border-transparent text-slate-400 hover:text-slate-200'
-          }`}
-        >
-          <RefreshCw className="w-4 h-4" />
-          <span>Konversi Format</span>
-        </button>
-      </div>
+      {/* Tabs Navigation */}
+      <ImageToolTabs
+        activeTab={activeTab}
+        onSelectTab={handleTabChange}
+        disabled={isLoading}
+      />
 
-      <Card className="space-y-6">
-        {activeTab === 'compress' ? (
-          <div className="space-y-4">
-            <h2 className="text-lg font-semibold text-white">Kompresi Ukuran Gambar</h2>
-            <FileDropzone
-              multiple={false}
-              accept={{ 'image/*': ['.jpg', '.jpeg', '.png', '.webp'] }}
-              title="Tarik & lepas gambar yang ingin dikompres"
-            />
-            <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1">Kualitas Output (1 - 100)</label>
-              <input
-                type="number"
-                defaultValue={80}
-                min={10}
-                max={100}
-                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-2 text-sm text-slate-200 focus:outline-none focus:border-amber-500"
-              />
-            </div>
-            <Button className="w-full bg-amber-600 hover:bg-amber-500 text-white">
-              Kompres Gambar Sekarang
-            </Button>
-          </div>
+      {/* Error Notification Alert */}
+      <ImageErrorAlert
+        message={errorMessage}
+        onClose={() => setErrorMessage('')}
+      />
+
+      {/* Main Workspace Container */}
+      <Card className="border-slate-800 bg-slate-900/80 backdrop-blur-sm p-6 sm:p-8 rounded-2xl shadow-xl transition duration-200">
+        {result ? (
+          <ImageResultCard result={result} onReset={handleReset} />
         ) : (
-          <div className="space-y-4">
-            <h2 className="text-lg font-semibold text-white">Konversi Format Gambar</h2>
-            <FileDropzone
-              multiple={false}
-              accept={{ 'image/*': ['.jpg', '.jpeg', '.png', '.webp', '.tiff', '.avif'] }}
-              title="Tarik & lepas file gambar di sini"
-            />
-            <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1">Format Output Target</label>
-              <select className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-2 text-sm text-slate-200 focus:outline-none focus:border-amber-500">
-                <option value="webp">WebP (Ukuran Paling Efisien)</option>
-                <option value="png">PNG (Transparan/Lossless)</option>
-                <option value="jpeg">JPEG (Standard Foto)</option>
-                <option value="avif">AVIF (Next-Gen)</option>
-              </select>
-            </div>
-            <Button className="w-full bg-amber-600 hover:bg-amber-500 text-white">
-              Mulai Konversi Gambar
-            </Button>
-          </div>
+          <>
+            {activeTab === 'compress' && (
+              <CompressImagePanel
+                onSubmit={handleCompressSubmit}
+                isLoading={isLoading}
+              />
+            )}
+            {activeTab === 'convert' && (
+              <ConvertImagePanel
+                onSubmit={handleConvertSubmit}
+                isLoading={isLoading}
+              />
+            )}
+          </>
         )}
       </Card>
     </div>

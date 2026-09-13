@@ -1,81 +1,151 @@
 'use client';
 
 import { useState } from 'react';
-import { Card, Button } from '../../components/Button';
-import FileDropzone from '../../components/FileDropzone';
-import { FileText, Layers, Scissors } from 'lucide-react';
+import { FileText, Sparkles } from 'lucide-react';
+import { Card } from '../../components/Button';
+import PdfToolTabs from '../../components/pdf/PdfToolTabs';
+import MergePdfPanel from '../../components/pdf/MergePdfPanel';
+import SplitPdfPanel from '../../components/pdf/SplitPdfPanel';
+import CompressPdfPanel from '../../components/pdf/CompressPdfPanel';
+import PdfResultCard from '../../components/pdf/PdfResultCard';
+import PdfErrorAlert from '../../components/pdf/PdfErrorAlert';
+import { pdfService, parsePdfError } from '../../services/pdfService';
 
 export default function PdfPage() {
-  const [activeTab, setActiveTab] = useState('merge'); // 'merge' or 'split'
+  const [activeTab, setActiveTab] = useState('merge'); // 'merge' | 'split' | 'compress'
+  const [isLoading, setIsLoading] = useState(false);
+  const [result, setResult] = useState(null);
+  const [errorMessage, setErrorMessage] = useState('');
+
+  const handleTabChange = (tabId) => {
+    setActiveTab(tabId);
+    setResult(null);
+    setErrorMessage('');
+  };
+
+  const handleReset = () => {
+    setResult(null);
+    setErrorMessage('');
+  };
+
+  const handleMergeSubmit = async (files) => {
+    setIsLoading(true);
+    setErrorMessage('');
+    setResult(null);
+
+    try {
+      const blob = await pdfService.mergePdf(files);
+      setResult({
+        blob,
+        filename: 'merged-documents.pdf',
+        toolType: 'merge',
+      });
+    } catch (err) {
+      const msg = await parsePdfError(err);
+      setErrorMessage(msg);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleSplitSubmit = async ({ file, startPage, endPage }) => {
+    setIsLoading(true);
+    setErrorMessage('');
+    setResult(null);
+
+    try {
+      const blob = await pdfService.splitPdf(file, startPage, endPage);
+      const baseName = file.name.replace(/\.[^/.]+$/, '');
+      setResult({
+        blob,
+        filename: `${baseName}-hal-${startPage}-${endPage}.pdf`,
+        toolType: 'split',
+      });
+    } catch (err) {
+      const msg = await parsePdfError(err);
+      setErrorMessage(msg);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleCompressSubmit = async ({ file, level }) => {
+    setIsLoading(true);
+    setErrorMessage('');
+    setResult(null);
+
+    try {
+      const blob = await pdfService.compressPdf(file, level);
+      const baseName = file.name.replace(/\.[^/.]+$/, '');
+      setResult({
+        blob,
+        filename: `${baseName}-compressed.pdf`,
+        originalSize: file.size,
+        compressedSize: blob.size,
+        toolType: 'compress',
+      });
+    } catch (err) {
+      const msg = await parsePdfError(err);
+      setErrorMessage(msg);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   return (
     <div className="max-w-3xl mx-auto space-y-8">
-      <div className="text-center space-y-2">
-        <div className="inline-flex p-3 bg-rose-500/10 rounded-full text-rose-400">
-          <FileText className="w-8 h-8" />
+      {/* Header Section */}
+      <div className="text-center space-y-3">
+        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs font-semibold uppercase tracking-wider">
+          <Sparkles className="w-3.5 h-3.5" />
+          <span>PDF Productivity Suite</span>
         </div>
-        <h1 className="text-3xl font-bold text-white">PDF Tools</h1>
-        <p className="text-sm text-slate-400">Gabungkan atau pisahkan dokumen PDF dengan cepat langsung dari browser.</p>
+        <h1 className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight">
+          PDF Tools Dashboard
+        </h1>
+        <p className="text-sm sm:text-base text-slate-400 max-w-xl mx-auto leading-relaxed">
+          Gabungkan banyak file, pisahkan rentang halaman dokumen, atau optimasi ukuran PDF Anda secara cepat dan aman di RAM.
+        </p>
       </div>
 
-      <div className="flex border-b border-slate-800 justify-center space-x-4">
-        <button
-          onClick={() => setActiveTab('merge')}
-          className={`flex items-center space-x-2 pb-3 px-4 text-sm font-semibold border-b-2 transition ${
-            activeTab === 'merge'
-              ? 'border-rose-500 text-rose-400'
-              : 'border-transparent text-slate-400 hover:text-slate-200'
-          }`}
-        >
-          <Layers className="w-4 h-4" />
-          <span>Merge PDF</span>
-        </button>
-        <button
-          onClick={() => setActiveTab('split')}
-          className={`flex items-center space-x-2 pb-3 px-4 text-sm font-semibold border-b-2 transition ${
-            activeTab === 'split'
-              ? 'border-rose-500 text-rose-400'
-              : 'border-transparent text-slate-400 hover:text-slate-200'
-          }`}
-        >
-          <Scissors className="w-4 h-4" />
-          <span>Split PDF</span>
-        </button>
-      </div>
+      {/* Tabs Navigation */}
+      <PdfToolTabs
+        activeTab={activeTab}
+        onSelectTab={handleTabChange}
+        disabled={isLoading}
+      />
 
-      <Card className="space-y-6">
-        {activeTab === 'merge' ? (
-          <div className="space-y-4">
-            <h2 className="text-lg font-semibold text-white">Gabungkan Beberapa File PDF</h2>
-            <FileDropzone
-              multiple={true}
-              accept={{ 'application/pdf': ['.pdf'] }}
-              title="Tarik & lepas beberapa file PDF di sini"
-            />
-            <Button className="w-full bg-rose-600 hover:bg-rose-500">
-              Proses Gabung PDF
-            </Button>
-          </div>
+      {/* Error Alert */}
+      <PdfErrorAlert
+        message={errorMessage}
+        onClose={() => setErrorMessage('')}
+      />
+
+      {/* Main Workspace Card */}
+      <Card className="border-slate-800 bg-slate-900/80 backdrop-blur-sm p-6 sm:p-8 rounded-2xl shadow-xl transition duration-200">
+        {result ? (
+          <PdfResultCard result={result} onReset={handleReset} />
         ) : (
-          <div className="space-y-4">
-            <h2 className="text-lg font-semibold text-white">Pisahkan Halaman PDF</h2>
-            <FileDropzone
-              multiple={false}
-              accept={{ 'application/pdf': ['.pdf'] }}
-              title="Tarik & lepas file PDF yang ingin dipisahkan"
-            />
-            <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1">Pilih Rentang Halaman (contoh: 1-3, 5)</label>
-              <input
-                type="text"
-                placeholder="1-3, 5"
-                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-2 text-sm text-slate-200 focus:outline-none focus:border-rose-500"
+          <>
+            {activeTab === 'merge' && (
+              <MergePdfPanel
+                onSubmit={handleMergeSubmit}
+                isLoading={isLoading}
               />
-            </div>
-            <Button className="w-full bg-rose-600 hover:bg-rose-500">
-              Proses Pisah PDF
-            </Button>
-          </div>
+            )}
+            {activeTab === 'split' && (
+              <SplitPdfPanel
+                onSubmit={handleSplitSubmit}
+                isLoading={isLoading}
+              />
+            )}
+            {activeTab === 'compress' && (
+              <CompressPdfPanel
+                onSubmit={handleCompressSubmit}
+                isLoading={isLoading}
+              />
+            )}
+          </>
         )}
       </Card>
     </div>
