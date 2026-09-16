@@ -1,0 +1,77 @@
+'use client';
+
+import { Youtube, RefreshCw } from 'lucide-react';
+import { clsx } from 'clsx';
+
+export default function MusicToolTabs({ activeTab, onSelectTab, disabled = false }) {
+  const tabs = [
+    {
+      id: 'youtube',
+      label: 'Unduh dari YouTube',
+      badge: 'Extract MP3 Instant',
+      icon: Youtube,
+      description: 'Ekstrak track audio dari video & Shorts YouTube',
+    },
+    {
+      id: 'convert',
+      label: 'Konversi Format Audio',
+      badge: 'FFmpeg Engine',
+      icon: RefreshCw,
+      description: 'Ubah format ke MP3, WAV, AAC, OGG, FLAC',
+    },
+  ];
+
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-1.5 bg-slate-900/90 border border-slate-800 rounded-2xl shadow-inner">
+      {tabs.map((tab) => {
+        const Icon = tab.icon;
+        const isActive = activeTab === tab.id;
+
+        return (
+          <button
+            key={tab.id}
+            type="button"
+            disabled={disabled}
+            onClick={() => onSelectTab(tab.id)}
+            className={clsx(
+              'group relative flex items-center p-3.5 rounded-xl text-left transition-all duration-200 select-none cursor-pointer',
+              'disabled:opacity-50 disabled:cursor-not-allowed',
+              isActive
+                ? 'bg-emerald-500/15 border border-emerald-500/40 shadow-sm text-white'
+                : 'hover:bg-slate-800/60 border border-transparent text-slate-400 hover:text-slate-200'
+            )}
+          >
+            <div
+              className={clsx(
+                'p-2.5 rounded-lg mr-3 transition-colors shrink-0',
+                isActive
+                  ? 'bg-emerald-500 text-slate-950 font-bold shadow-md shadow-emerald-950/40'
+                  : 'bg-slate-800 text-slate-400 group-hover:text-emerald-400'
+              )}
+            >
+              <Icon className="w-5 h-5" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center justify-between gap-1">
+                <span className={clsx('text-sm font-semibold truncate', isActive ? 'text-white' : 'text-slate-200')}>
+                  {tab.label}
+                </span>
+                <span
+                  className={clsx(
+                    'text-[10px] uppercase font-semibold px-2 py-0.5 rounded-full border shrink-0',
+                    isActive
+                      ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
+                      : 'bg-slate-800 text-slate-400 border-slate-700/80'
+                  )}
+                >
+                  {tab.badge}
+                </span>
+              </div>
+              <p className="text-xs text-slate-400 truncate mt-0.5">{tab.description}</p>
+            </div>
+          </button>
+        );
+      })}
+    </div>
+  );
+}

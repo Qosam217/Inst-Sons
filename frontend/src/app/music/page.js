@@ -1,95 +1,225 @@
 'use client';
 
-import { useState } from 'react';
-import { Card, Button } from '../../components/Button';
-import FileDropzone from '../../components/FileDropzone';
-import { Music, Youtube, RefreshCw, Download } from 'lucide-react';
+import { useState, useRef, useEffect } from 'react';
+import { Music, Sparkles } from 'lucide-react';
+import { Card } from '../../components/Button';
+import MusicToolTabs from '../../components/music/MusicToolTabs';
+import YoutubeDownloaderPanel from '../../components/music/YoutubeDownloaderPanel';
+import ConvertAudioPanel from '../../components/music/ConvertAudioPanel';
+import AudioProcessingStatus from '../../components/music/AudioProcessingStatus';
+import AudioResultCard from '../../components/music/AudioResultCard';
+import AudioErrorAlert from '../../components/music/AudioErrorAlert';
+import { musicService, parseAudioError } from '../../services/musicService';
 
 export default function MusicPage() {
-  const [activeTab, setActiveTab] = useState('youtube'); // 'youtube' or 'convert'
+  const [activeTab, setActiveTab] = useState('youtube'); // 'youtube' | 'convert'
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [processingState, setProcessingState] = useState(null); // { toolType, targetFormat }
+  const [result, setResult] = useState(null);
+  const [errorMessage, setErrorMessage] = useState('');
+
+  const abortControllerRef = useRef(null);
+
+  // Cleanup abort signal saat unmount
+  useEffect(() => {
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
+  }, []);
+
+  const handleTabChange = (tabId) => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+    setActiveTab(tabId);
+    setIsProcessing(false);
+    setProcessingState(null);
+    setResult(null);
+    setErrorMessage('');
+  };
+
+  const handleReset = () => {
+    setResult(null);
+    setErrorMessage('');
+    setIsProcessing(false);
+    setProcessingState(null);
+  };
+
+  const handleCancel = () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+    setIsProcessing(false);
+    setProcessingState(null);
+    setErrorMessage('Proses pemrosesan audio telah dibatalkan.');
+  };
+
+  const handleYoutubeSubmit = async ({ url, bitrate }) => {
+    setIsProcessing(true);
+    setProcessingState({ toolType: 'youtube', targetFormat: 'MP3' });
+    setErrorMessage('');
+    setResult(null);
+
+    const abortController = new AbortController();
+    abortControllerRef.current = abortController;
+
+    try {
+      // 1. Kirim request ekstraksi audio YouTube ke backend
+      const responseData = await musicService.requestYoutubeDownload(url);
+      const taskId = responseData.task_id;
+
+      if (!taskId) {
+        throw new Error('Gagal menginisialisasi task ekstraksi audio YouTube.');
+      }
+
+      // 2. Lakukan background polling hingga status 'completed'
+      const completedTask = await musicService.pollTaskUntilComplete(
+        musicService.getYoutubeTaskStatus,
+        taskId,
+        {
+          signal: abortController.signal,
+          intervalMs: 2000,
+          maxAttempts: 150,
+        }
+      );
+
+      // 3. Unduh berkas audio MP3 biner
+      const blob = await musicService.downloadYoutubeAudio(taskId);
+
+      const cleanTitle = (completedTask.title || 'youtube-audio').replace(/[/\\?%*:|"<>]/g, '_');
+
+      setResult({
+        blob,
+        filename: `${cleanTitle}.mp3`,
+        title: completedTask.title || 'YouTube Audio',
+        duration: completedTask.duration,
+        toolType: 'youtube',
+        targetFormat: 'MP3',
+      });
+    } catch (err) {
+      if (err.name !== 'AbortError') {
+        const msg = await parseAudioError(err);
+        setErrorMessage(msg);
+      }
+    } finally {
+      setIsProcessing(false);
+      setProcessingState(null);
+      abortControllerRef.current = null;
+    }
+  };
+
+  const handleConvertSubmit = async ({ file, format }) => {
+    setIsProcessing(true);
+    setProcessingState({ toolType: 'convert', targetFormat: format });
+    setErrorMessage('');
+    setResult(null);
+
+    const abortController = new AbortController();
+    abortControllerRef.current = abortController;
+
+    try {
+      // 1. Upload file audio dan inisiasi task konversi
+      const responseData = await musicService.convertAudio(file, format);
+      const taskId = responseData.task_id;
+
+      if (!taskId) {
+        throw new Error('Gagal menginisialisasi task konversi format audio.');
+      }
+
+      // 2. Lakukan background polling hingga status 'completed'
+      await musicService.pollTaskUntilComplete(
+        musicService.getAudioTaskStatus,
+        taskId,
+        {
+          signal: abortController.signal,
+          intervalMs: 2000,
+          maxAttempts: 150,
+        }
+      );
+
+      // 3. Unduh berkas audio hasil konversi biner
+      const blob = await musicService.downloadAudio(taskId);
+
+      const baseName = file.name.replace(/\.[^/.]+$/, '');
+      const downloadExt = format.toLowerCase();
+
+      setResult({
+        blob,
+        filename: `converted-${baseName}.${downloadExt}`,
+        title: file.name,
+        toolType: 'convert',
+        targetFormat: format.toUpperCase(),
+      });
+    } catch (err) {
+      if (err.name !== 'AbortError') {
+        const msg = await parseAudioError(err);
+        setErrorMessage(msg);
+      }
+    } finally {
+      setIsProcessing(false);
+      setProcessingState(null);
+      abortControllerRef.current = null;
+    }
+  };
 
   return (
     <div className="max-w-3xl mx-auto space-y-8">
-      <div className="text-center space-y-2">
-        <div className="inline-flex p-3 bg-emerald-500/10 rounded-full text-emerald-400">
-          <Music className="w-8 h-8" />
+      {/* Header Section */}
+      <div className="text-center space-y-3">
+        <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-semibold uppercase tracking-wider shadow-sm">
+          <Sparkles className="w-3.5 h-3.5" />
+          <span>Audio Processing & Extraction Suite</span>
         </div>
-        <h1 className="text-3xl font-bold text-white">Music & YouTube Tools</h1>
-        <p className="text-sm text-slate-400">Unduh audio dari YouTube atau konversi format file musik Anda dengan FFmpeg.</p>
+        <h1 className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight">
+          Music & Audio Tools
+        </h1>
+        <p className="text-sm sm:text-base text-slate-400 max-w-xl mx-auto leading-relaxed">
+          Unduh track audio dari YouTube atau konversi format audio (MP3, WAV, AAC, OGG, FLAC) secara instan dan aman dengan FFmpeg.
+        </p>
       </div>
 
-      <div className="flex border-b border-slate-800 justify-center space-x-4">
-        <button
-          onClick={() => setActiveTab('youtube')}
-          className={`flex items-center space-x-2 pb-3 px-4 text-sm font-semibold border-b-2 transition ${
-            activeTab === 'youtube'
-              ? 'border-emerald-500 text-emerald-400'
-              : 'border-transparent text-slate-400 hover:text-slate-200'
-          }`}
-        >
-          <Youtube className="w-4 h-4" />
-          <span>YouTube Audio Downloader</span>
-        </button>
-        <button
-          onClick={() => setActiveTab('convert')}
-          className={`flex items-center space-x-2 pb-3 px-4 text-sm font-semibold border-b-2 transition ${
-            activeTab === 'convert'
-              ? 'border-emerald-500 text-emerald-400'
-              : 'border-transparent text-slate-400 hover:text-slate-200'
-          }`}
-        >
-          <RefreshCw className="w-4 h-4" />
-          <span>Konversi Format Audio</span>
-        </button>
-      </div>
+      {/* Tabs Navigation */}
+      <MusicToolTabs
+        activeTab={activeTab}
+        onSelectTab={handleTabChange}
+        disabled={isProcessing}
+      />
 
-      <Card className="space-y-6">
-        {activeTab === 'youtube' ? (
-          <div className="space-y-4">
-            <h2 className="text-lg font-semibold text-white">Download Audio dari Link YouTube</h2>
-            <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1">URL Video YouTube</label>
-              <input
-                type="url"
-                placeholder="https://www.youtube.com/watch?v=..."
-                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1">Kualitas Audio</label>
-              <select className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500">
-                <option value="320k">320 kbps (High Quality)</option>
-                <option value="192k">192 kbps (Standard)</option>
-                <option value="128k">128 kbps (Compact)</option>
-              </select>
-            </div>
-            <Button className="w-full bg-emerald-600 hover:bg-emerald-500 flex items-center justify-center space-x-2">
-              <Download className="w-4 h-4" />
-              <span>Ekstrak & Download MP3</span>
-            </Button>
-          </div>
+      {/* Error Notification Alert */}
+      <AudioErrorAlert
+        message={errorMessage}
+        onClose={() => setErrorMessage('')}
+      />
+
+      {/* Main Workspace Container */}
+      <Card className="border-slate-800 bg-slate-900/80 backdrop-blur-sm p-6 sm:p-8 rounded-2xl shadow-xl transition duration-200">
+        {isProcessing ? (
+          <AudioProcessingStatus
+            toolType={processingState?.toolType || activeTab}
+            targetFormat={processingState?.targetFormat}
+            onCancel={handleCancel}
+          />
+        ) : result ? (
+          <AudioResultCard result={result} onReset={handleReset} />
         ) : (
-          <div className="space-y-4">
-            <h2 className="text-lg font-semibold text-white">Konversi Format Audio</h2>
-            <FileDropzone
-              multiple={false}
-              accept={{ 'audio/*': ['.mp3', '.wav', '.flac', '.m4a', '.ogg', '.aac'] }}
-              title="Tarik & lepas file audio di sini"
-            />
-            <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1">Format Output Target</label>
-              <select className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500">
-                <option value="mp3">MP3</option>
-                <option value="wav">WAV</option>
-                <option value="flac">FLAC</option>
-                <option value="aac">AAC</option>
-                <option value="m4a">M4A</option>
-              </select>
-            </div>
-            <Button className="w-full bg-emerald-600 hover:bg-emerald-500">
-              Mulai Konversi Audio
-            </Button>
-          </div>
+          <>
+            {activeTab === 'youtube' && (
+              <YoutubeDownloaderPanel
+                onSubmit={handleYoutubeSubmit}
+                isLoading={isProcessing}
+              />
+            )}
+            {activeTab === 'convert' && (
+              <ConvertAudioPanel
+                onSubmit={handleConvertSubmit}
+                isLoading={isProcessing}
+              />
+            )}
+          </>
         )}
       </Card>
     </div>
